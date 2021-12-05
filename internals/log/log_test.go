@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	api "github.com/bohdan-chechin/proglog/api/v1"
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,8 +17,8 @@ func TestLog(t *testing.T) {
 		"append and read record succeed": testAppendRead,
 		"offset out of range error":      testOutOfRangeErr,
 		"init with existing segment":     testInitExisting,
-		// "reader":                         testReader,
-		"truncate": testTruncate,
+		"reader":                         testReader,
+		"truncate":                       testTruncate,
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			dir, err := ioutil.TempDir("", "store-test")
@@ -83,22 +84,24 @@ func testInitExisting(t *testing.T, log *Log) {
 }
 
 // commented because ReadAll for reader doesn't call buf.Flush() so data is not in the file but in the buffer
-// func testReader(t *testing.T, log *Log) {
-// 	append := &api.Record{
-// 		Value: []byte("hello world"),
-// 	}
-// 	off, err := log.Append(append)
-// 	require.NoError(t, err)
-// 	require.Equal(t, uint64(0), off)
+func testReader(t *testing.T, log *Log) {
+	append := &api.Record{
+		Value: []byte("hello world"),
+	}
+	off, err := log.Append(append)
+	require.NoError(t, err)
+	// err = log.activeSegment.store.buf.Flush()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), off)
 
-// 	b, err := ioutil.ReadAll(log.Reader())
-// 	require.NoError(t, err)
+	b, err := ioutil.ReadAll(log.Reader())
+	require.NoError(t, err)
 
-// 	read := &api.Record{}
-// 	err = proto.Unmarshal(b[:lenWidth], read)
-// 	require.NoError(t, err)
-// 	require.Equal(t, append, read)
-// }
+	read := &api.Record{}
+	err = proto.Unmarshal(b[lenWidth:], read)
+	require.NoError(t, err)
+	require.Equal(t, append, read)
+}
 
 func testTruncate(t *testing.T, log *Log) {
 	append := &api.Record{
